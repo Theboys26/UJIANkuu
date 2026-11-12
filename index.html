@@ -1,0 +1,62 @@
+<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Quiz</title>
+<style>
+:root{--bg:#f4f6f9;--c:#fff;--t:#1b2430;--m:#5a6776;--p:#1d5fbf;--b:#d8dfe7}
+@media(prefers-color-scheme:dark){:root{--bg:#11161c;--c:#192028;--t:#e7ecf1;--m:#98a5b3;--p:#6ea3f5;--b:#2b3642}}
+*{box-sizing:border-box}body{margin:0;font:16px/1.55 system-ui,sans-serif;background:var(--bg);color:var(--t)}
+main{max-width:720px;margin:0 auto;padding:16px}h1{font-size:1.4rem;margin:8px 0}
+.card{background:var(--c);border:1px solid var(--b);border-radius:10px;padding:16px;margin-bottom:14px}
+input{width:100%;padding:10px;margin:4px 0 12px;border:1px solid var(--b);border-radius:8px;background:var(--bg);color:var(--t);font:inherit}
+button{background:var(--p);color:#fff;border:0;padding:11px 18px;border-radius:8px;font:inherit;cursor:pointer}
+button:disabled{opacity:.5}:focus-visible{outline:3px solid var(--p);outline-offset:2px}
+label.o{display:block;padding:9px 10px;border:1px solid var(--b);border-radius:8px;margin:6px 0;cursor:pointer}
+label.o:has(input:checked){border-color:var(--p);background:color-mix(in srgb,var(--p) 14%,transparent)}
+label.o input{width:auto;margin:0 8px 0 0}img{max-width:100%;border-radius:8px;margin:8px 0}
+#bar{position:sticky;top:0;background:var(--c);border-bottom:1px solid var(--b);padding:10px 16px;display:flex;justify-content:space-between;font-weight:600}
+.hide{display:none}.m{color:var(--m)}.big{font-size:3rem;font-weight:700;color:var(--p)}
+</style></head><body>
+<div id="bar" class="hide"><span id="prog"></span><span id="tm"></span></div>
+<main>
+<div id="start" class="card"><h1 id="jd">Memuat...</h1><p class="m" id="info"></p>
+<label>Nama lengkap<input id="nama" autocomplete="off"></label>
+<label>Kelas<input id="kelas" autocomplete="off"></label>
+<label>NIS<input id="nis" inputmode="numeric" autocomplete="off"></label>
+<button id="go" disabled onclick="mulai()">Mulai mengerjakan</button><p id="err" class="m"></p></div>
+<div id="soal" class="hide"></div>
+<div id="res" class="card hide" style="text-align:center"></div>
+</main>
+<script>
+const API='https://script.google.com/macros/s/AKfycbx9PVW4HOpP0zvYIOUO7HiKjpm0HCDz_jklgfZWdJuaH-SIr1iz8U-3M84f4iBRhhtW/exec';
+const $=i=>document.getElementById(i);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let S=[],C={},sisa=0,tm=null,done=false;
+fetch(API).then(r=>r.json()).then(d=>{
+  if(!d.ok)throw new Error(d.error);C=d.config;S=d.soal;
+  $('jd').textContent=C.judul;$('info').textContent=S.length+' soal, waktu '+C.durasi+' menit';$('go').disabled=!S.length;
+  if(!S.length)$('err').textContent='Belum ada soal.';
+}).catch(e=>{$('jd').textContent='Gagal memuat';$('err').textContent=e.message;});
+function mulai(){
+  if(!$('nama').value.trim()||!$('nis').value.trim()){$('err').textContent='Nama dan NIS wajib diisi.';return;}
+  if(C.acak==='ya')S.sort(()=>Math.random()-.5);
+  $('soal').innerHTML=S.map((q,i)=>'<div class="card"><b>'+(i+1)+'.</b> '+esc(q.pertanyaan)+
+    (q.gambar?'<br><img src="'+esc(q.gambar)+'" alt="Gambar soal '+(i+1)+'">':'')+
+    ['A','B','C','D'].filter(k=>q[k]!=='').map(k=>'<label class="o"><input type="radio" name="q'+q.id+'" value="'+k+'" onchange="upd()"> '+k+'. '+esc(q[k])+'</label>').join('')+'</div>').join('')+
+    '<button onclick="kirim()">Kirim jawaban</button>';
+  $('start').classList.add('hide');$('soal').classList.remove('hide');$('bar').classList.remove('hide');
+  sisa=C.durasi*60;upd();tick();tm=setInterval(tick,1000);
+  window.onbeforeunload=e=>{if(!done){e.preventDefault();return '';}};
+}
+function upd(){const n=S.filter(q=>document.querySelector('input[name=q'+q.id+']:checked')).length;$('prog').textContent='Terjawab '+n+'/'+S.length;}
+function tick(){const m=Math.floor(sisa/60),s=sisa%60;$('tm').textContent=m+':'+String(s).padStart(2,'0');if(sisa--<=0)kirim(true);}
+async function kirim(auto){
+  if(done)return;
+  if(!auto&&S.some(q=>!document.querySelector('input[name=q'+q.id+']:checked'))&&!confirm('Masih ada soal belum dijawab. Kirim sekarang?'))return;
+  done=true;clearInterval(tm);const jawab={};
+  S.forEach(q=>{const c=document.querySelector('input[name=q'+q.id+']:checked');if(c)jawab[q.id]=c.value;});
+  $('soal').classList.add('hide');$('bar').classList.add('hide');$('res').classList.remove('hide');$('res').textContent='Mengirim jawaban...';
+  try{
+    const r=await(await fetch(API,{method:'POST',body:JSON.stringify({action:'submit',nama:$('nama').value,kelas:$('kelas').value,nis:$('nis').value,jawab})})).json();
+    if(!r.ok)throw new Error(r.error);
+    $('res').innerHTML=r.tampil?'<p>Nilai kamu</p><div class="big">'+r.nilai+'</div><p class="m">Benar '+r.benar+' dari '+r.total+' soal</p>':'<h1>Jawaban terkirim</h1><p class="m">Terima kasih, '+esc($('nama').value)+'.</p>';
+  }catch(e){done=false;$('res').innerHTML='<p>Gagal mengirim: '+esc(e.message)+'</p><button onclick="kirim(true)">Coba kirim lagi</button>';}
+}
+</script></body></html>

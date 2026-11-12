@@ -1,0 +1,59 @@
+<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin Quiz</title>
+<style>
+:root{--bg:#f4f6f9;--c:#fff;--t:#1b2430;--m:#5a6776;--p:#1d5fbf;--b:#d8dfe7;--r:#b3261e}
+@media(prefers-color-scheme:dark){:root{--bg:#11161c;--c:#192028;--t:#e7ecf1;--m:#98a5b3;--p:#6ea3f5;--b:#2b3642;--r:#f2928b}}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--t)}
+main{max-width:860px;margin:0 auto;padding:16px}h2{font-size:1.1rem;margin:0 0 10px}
+.card{background:var(--c);border:1px solid var(--b);border-radius:10px;padding:14px;margin-bottom:12px}
+input,select,textarea{width:100%;padding:9px;margin:3px 0 10px;border:1px solid var(--b);border-radius:8px;background:var(--bg);color:var(--t);font:inherit}
+button{background:var(--p);color:#fff;border:0;padding:9px 14px;border-radius:8px;font:inherit;cursor:pointer;margin-right:6px}
+button.g{background:transparent;color:var(--p);border:1px solid var(--p)}button.d{background:transparent;color:var(--r);border:1px solid var(--r)}
+:focus-visible{outline:3px solid var(--p);outline-offset:2px}nav{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}@media(max-width:560px){.g2{grid-template-columns:1fr}}
+img{max-width:220px;border-radius:6px;display:block;margin:6px 0}.m{color:var(--m)}.hide{display:none}
+table{width:100%;border-collapse:collapse}td,th{padding:6px;border-bottom:1px solid var(--b);text-align:left}.ok{color:var(--p);font-weight:600}
+</style></head><body><main>
+<div id="lg" class="card"><h2>Masuk admin</h2><input id="pw" type="password" placeholder="Password admin" onkeydown="if(event.key==='Enter')masuk()"><button onclick="masuk()">Masuk</button></div>
+<div id="app" class="hide"><h2 style="font-size:1.4rem">Admin Quiz</h2>
+<nav><button onclick="tab('t1')">Soal</button><button class="g" onclick="tab('t2')">Buat dengan AI</button><button class="g" onclick="tab('t3')">Hasil</button><button class="g" onclick="tab('t4')">Pengaturan</button></nav>
+<div id="msg" class="m"></div>
+<section id="t1"><div class="card"><h2>Tambah soal</h2>
+<textarea id="pq" rows="2" placeholder="Pertanyaan"></textarea>
+<div class="g2"><input id="pa" placeholder="Opsi A"><input id="pb" placeholder="Opsi B"><input id="pc" placeholder="Opsi C"><input id="pd" placeholder="Opsi D"></div>
+<select id="pk"><option>A</option><option>B</option><option>C</option><option>D</option></select>
+<label>Gambar (opsional)<input id="pf" type="file" accept="image/*" onchange="up(this)"></label><div id="pv"></div>
+<button onclick="tambah()">Simpan soal</button></div>
+<div id="ls"></div></section>
+<section id="t2" class="hide"><div class="card"><h2>Buat soal dengan Gemini</h2>
+<input id="gt" placeholder="Topik, contoh: Algoritma dan flowchart"><div class="g2"><input id="gm" placeholder="Mata pelajaran" value="Informatika"><input id="gl" placeholder="Tingkat" value="SMP kelas IX"></div>
+<input id="gj" type="number" value="5" min="1" max="20"><button onclick="gen()">Buat soal</button></div><div id="gr"></div></section>
+<section id="t3" class="hide"><div class="card"><button onclick="hasil()">Muat hasil</button><div id="hs"></div></div></section>
+<section id="t4" class="hide"><div class="card"><h2>Pengaturan</h2>
+<label>Judul<input id="cj"></label><label>Durasi (menit)<input id="cd" type="number"></label>
+<label>Tampilkan nilai ke siswa<select id="cn"><option value="ya">Ya</option><option value="tidak">Tidak</option></select></label>
+<label>Acak urutan soal<select id="ca"><option value="ya">Ya</option><option value="tidak">Tidak</option></select></label>
+<button onclick="simpanCfg()">Simpan</button></div></section></div>
+<script>
+const API='https://script.google.com/macros/s/AKfycbx9PVW4HOpP0zvYIOUO7HiKjpm0HCDz_jklgfZWdJuaH-SIr1iz8U-3M84f4iBRhhtW/exec';
+const $=i=>document.getElementById(i);let P='',img='',AI=[];
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function api(o){const r=await(await fetch(API,{method:'POST',body:JSON.stringify({...o,pass:P})})).json();if(!r.ok)throw new Error(r.error);return r;}
+const say=t=>$('msg').textContent=t;
+async function masuk(){P=$('pw').value;try{await api({action:'login'});$('lg').classList.add('hide');$('app').classList.remove('hide');load();cfg();}catch(e){alert(e.message);}}
+function tab(id){['t1','t2','t3','t4'].forEach(t=>$(t).classList.toggle('hide',t!==id));}
+async function load(){const r=await api({action:'list'});$('ls').innerHTML=r.soal.length?r.soal.map((q,i)=>'<div class="card"><b>'+(i+1)+'.</b> '+esc(q.pertanyaan)+(q.gambar?'<img src="'+esc(q.gambar)+'" alt="">':'')+
+ '<div class="m">A. '+esc(q.A)+' | B. '+esc(q.B)+' | C. '+esc(q.C)+' | D. '+esc(q.D)+'</div><span class="ok">Kunci: '+esc(q.kunci)+'</span> <button class="d" onclick="hapus(\''+esc(q.id)+'\')">Hapus</button></div>').join(''):'<p class="m">Belum ada soal.</p>';}
+function kecil(f){return new Promise(r=>{const i=new Image();i.onload=()=>{const k=Math.min(1,900/i.width),c=document.createElement('canvas');c.width=i.width*k;c.height=i.height*k;c.getContext('2d').drawImage(i,0,0,c.width,c.height);r(c.toDataURL('image/jpeg',.8).split(',')[1]);};i.src=URL.createObjectURL(f);});}
+async function up(el){if(!el.files[0])return;say('Mengunggah gambar...');try{const r=await api({action:'upload',data:await kecil(el.files[0])});img=r.url;$('pv').innerHTML='<img src="'+r.url+'" alt="">';say('Gambar terunggah.');}catch(e){say(e.message);}}
+async function tambah(){const item={pertanyaan:$('pq').value,A:$('pa').value,B:$('pb').value,C:$('pc').value,D:$('pd').value,kunci:$('pk').value,gambar:img};
+ if(!item.pertanyaan||!item.A||!item.B){say('Isi pertanyaan dan minimal opsi A dan B.');return;}
+ try{await api({action:'save',item});['pq','pa','pb','pc','pd','pf'].forEach(i=>$(i).value='');img='';$('pv').innerHTML='';say('Soal disimpan.');load();}catch(e){say(e.message);}}
+async function hapus(id){if(!confirm('Hapus soal ini?'))return;await api({action:'del',id});load();}
+async function gen(){if(!$('gt').value){say('Isi topik dulu.');return;}say('Gemini sedang membuat soal...');
+ try{const r=await api({action:'gen',topik:$('gt').value,mapel:$('gm').value,tingkat:$('gl').value,jumlah:$('gj').value});AI=r.items;
+ $('gr').innerHTML=AI.map((q,i)=>'<div class="card"><label><input type="checkbox" id="ai'+i+'" checked style="width:auto"> <b>'+esc(q.pertanyaan)+'</b></label><div class="m">A. '+esc(q.A)+' | B. '+esc(q.B)+' | C. '+esc(q.C)+' | D. '+esc(q.D)+'</div><span class="ok">Kunci: '+esc(q.kunci)+'</span></div>').join('')+'<button onclick="simpanAI()">Simpan soal terpilih</button>';say('Periksa soal sebelum disimpan.');}catch(e){say(e.message);}}
+async function simpanAI(){const items=AI.filter((_,i)=>$('ai'+i).checked);if(!items.length)return;await api({action:'save',items});$('gr').innerHTML='';say(items.length+' soal disimpan.');load();tab('t1');}
+async function hasil(){const r=await api({action:'hasil'});$('hs').innerHTML='<table><tr><th>Nama</th><th>Kelas</th><th>NIS</th><th>Nilai</th></tr>'+r.hasil.map(h=>'<tr><td>'+esc(h.nama)+'</td><td>'+esc(h.kelas)+'</td><td>'+esc(h.nis)+'</td><td>'+esc(h.nilai)+'</td></tr>').join('')+'</table>';}
+async function cfg(){const c=(await api({action:'cfg'})).config;$('cj').value=c.judul;$('cd').value=c.durasi;$('cn').value=c.tampilNilai;$('ca').value=c.acak;}
+async function simpanCfg(){await api({action:'setcfg',cfg:{judul:$('cj').value,durasi:$('cd').value,tampilNilai:$('cn').value,acak:$('ca').value}});say('Pengaturan disimpan.');}
+</script></main></body></html>
